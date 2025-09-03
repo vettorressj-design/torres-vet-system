@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Torres Vet - Sistema de Gestión Veterinaria</title>
+    <title>Torres Vet - Sistema Simple</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -230,6 +230,23 @@
             background-color: #fafafa;
         }
 
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -372,49 +389,22 @@
             100% { transform: rotate(360deg); }
         }
 
-        .error-message, .success-message {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
         .error-message {
             background: #f8d7da;
             color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             border-left: 4px solid #dc3545;
         }
 
         .success-message {
             background: #d4edda;
             color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             border-left: 4px solid #28a745;
-        }
-
-        .api-config-warning {
-            background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
-            color: #2d3436;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            border-left: 5px solid #e17055;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .api-config-warning h3 {
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .api-config-warning code {
-            background: rgba(0,0,0,0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
         }
 
         @media (max-width: 768px) {
@@ -481,14 +471,6 @@
     </div>
 
     <div class="main-content">
-        <!-- Mensaje de configuración de API -->
-        <div class="api-config-warning">
-            <h3><i class="fas fa-exclamation-triangle"></i> Configuración Requerida</h3>
-            <p><strong>¡Importante!</strong> Para que el sistema funcione completamente, necesitas configurar tu API Key de Google Sheets.</p>
-            <p>Reemplaza <code>TU_API_KEY_AQUI</code> en la línea 1001 del código con tu API Key real de Google Cloud Console.</p>
-            <p><i class="fas fa-info-circle"></i> Mientras tanto, el sistema funciona con datos de demostración.</p>
-        </div>
-
         <!-- Dashboard Section -->
         <div id="dashboard" class="content-section active">
             <div class="section-header">
@@ -849,378 +831,9 @@
     </div>
 
     <script>
-        // ========================================
-        // EDITAR Y ELIMINAR
-        // ========================================
-        
-        function editProduct(codigo) {
-            openProductModal(codigo);
-        }
-
-        function deleteProduct(codigo) {
-            if (confirm('¿Está seguro de que desea eliminar este producto?')) {
-                const index = currentData.productos.findIndex(p => p.codigo === codigo);
-                if (index >= 0) {
-                    currentData.productos.splice(index, 1);
-                    displayProductos();
-                    populateProductSelects();
-                    showSuccessMessage('✅ Producto eliminado exitosamente');
-                    updateDashboard();
-                }
-            }
-        }
-
-        function deleteGasto(idGasto) {
-            if (confirm('¿Está seguro de que desea eliminar este gasto?')) {
-                const index = currentData.gastos.findIndex(g => g.idGasto === idGasto);
-                if (index >= 0) {
-                    currentData.gastos.splice(index, 1);
-                    displayGastos();
-                    updateDashboard();
-                    showSuccessMessage('✅ Gasto eliminado exitosamente');
-                }
-            }
-        }
-
-        // ========================================
-        // EVENTOS GLOBALES
-        // ========================================
-        
-        // Cerrar modales al hacer clic fuera
-        window.onclick = function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
-        }
-
-        // ========================================
-        // FUNCIONES PARA GOOGLE SHEETS (AVANZADAS)
-        // ========================================
-        
-        async function appendToGoogleSheet(range, values) {
-            if (API_KEY === 'TU_API_KEY_AQUI') return;
-            
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&key=${API_KEY}`;
-            
-            const body = {
-                values: [values]
-            };
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(body)
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Google Sheets API error: ${errorData.error?.message || response.statusText}`);
-                }
-                
-                return await response.json();
-            } catch (error) {
-                console.error('Error updating Google Sheets:', error);
-                showErrorMessage('❌ Error al guardar en Google Sheets: ' + error.message);
-                throw error;
-            }
-        }
-
-        async function saveProductToSheet(producto) {
-            try {
-                const values = [
-                    producto.codigo,
-                    producto.descripcion,
-                    `${producto.pu.toFixed(2)}`,
-                    `${producto.pvp.toFixed(2)}`,
-                    producto.proveedor
-                ];
-                
-                await appendToGoogleSheet(SHEETS_CONFIG.productos, values);
-                showSuccessMessage('✅ Producto guardado en Google Sheets');
-                
-            } catch (error) {
-                console.error('Error saving product to sheets:', error);
-            }
-        }
-
-        async function saveEntradaToSheet(entrada) {
-            try {
-                const values = [
-                    entrada.idLote,
-                    entrada.factura,
-                    entrada.fecha,
-                    entrada.codigo,
-                    entrada.descripcion,
-                    `${entrada.pu.toFixed(2)}`,
-                    `${entrada.pvp.toFixed(2)}`,
-                    entrada.proveedor,
-                    entrada.venc,
-                    entrada.cant.toString(),
-                    `${entrada.puNeto.toFixed(2)}`,
-                    `${entrada.total.toFixed(2)}`
-                ];
-                
-                await appendToGoogleSheet(SHEETS_CONFIG.entradas, values);
-                showSuccessMessage('✅ Entrada guardada en Google Sheets');
-                
-            } catch (error) {
-                console.error('Error saving entrada to sheets:', error);
-            }
-        }
-
-        async function saveSalidaToSheet(salida) {
-            try {
-                const values = [
-                    salida.idVenta,
-                    salida.fecha,
-                    salida.idLote,
-                    salida.codigo,
-                    salida.descripcion,
-                    `${salida.pvp.toFixed(2)}`,
-                    salida.venc,
-                    salida.cant.toString(),
-                    `${salida.pvpNeto.toFixed(2)}`,
-                    `${salida.ventaTotal.toFixed(2)}`
-                ];
-                
-                await appendToGoogleSheet(SHEETS_CONFIG.salidas, values);
-                showSuccessMessage('✅ Salida guardada en Google Sheets');
-                
-            } catch (error) {
-                console.error('Error saving salida to sheets:', error);
-            }
-        }
-
-        async function saveGastoToSheet(gasto) {
-            try {
-                const values = [
-                    gasto.idGasto,
-                    gasto.fecha,
-                    gasto.descripcion,
-                    gasto.categoria,
-                    `${gasto.monto.toFixed(2)}`
-                ];
-                
-                await appendToGoogleSheet(SHEETS_CONFIG.gastos, values);
-                showSuccessMessage('✅ Gasto guardado en Google Sheets');
-                
-            } catch (error) {
-                console.error('Error saving gasto to sheets:', error);
-            }
-        }
-
-        // ========================================
-        // VALIDADOR DE CONEXIÓN
-        // ========================================
-        
-        async function testGoogleSheetsConnection() {
-            if (API_KEY === 'TU_API_KEY_AQUI') {
-                return false;
-            }
-            
-            try {
-                const testRange = 'PRODUCTOS!A1:A1';
-                await fetchFromGoogleSheets(testRange);
-                console.log('✅ Conexión con Google Sheets exitosa');
-                showSuccessMessage('🚀 Conectado exitosamente con Google Sheets');
-                return true;
-            } catch (error) {
-                console.error('❌ Error de conexión con Google Sheets:', error);
-                showErrorMessage('❌ Error de conexión con Google Sheets: ' + error.message);
-                return false;
-            }
-        }
-
-        // Modificar las funciones de guardado para incluir sincronización con Google Sheets
-        const originalSaveProduct = saveProduct;
-        saveProduct = async function() {
-            const codigo = document.getElementById('product-codigo').value;
-            const descripcion = document.getElementById('product-descripcion').value;
-            const pu = parseFloat(document.getElementById('product-pu').value);
-            const pvp = parseFloat(document.getElementById('product-pvp').value);
-            const proveedor = document.getElementById('product-proveedor').value;
-
-            if (!codigo || !descripcion || !pu || !pvp || !proveedor) {
-                alert('Por favor, complete todos los campos');
-                return;
-            }
-
-            const existingIndex = currentData.productos.findIndex(p => p.codigo === codigo);
-            const productData = { codigo, descripcion, pu, pvp, proveedor };
-
-            if (existingIndex >= 0) {
-                currentData.productos[existingIndex] = productData;
-                showSuccessMessage('✅ Producto actualizado exitosamente');
-            } else {
-                currentData.productos.push(productData);
-                showSuccessMessage('✅ Producto agregado exitosamente');
-                
-                // Guardar en Google Sheets solo si es nuevo producto
-                if (API_KEY !== 'TU_API_KEY_AQUI') {
-                    await saveProductToSheet(productData);
-                }
-            }
-
-            displayProductos();
-            populateProductSelects();
-            closeProductModal();
-            updateDashboard();
-        };
-
-        const originalSaveEntrada = saveEntrada;
-        saveEntrada = async function() {
-            const idLote = document.getElementById('entrada-lote').value;
-            const factura = document.getElementById('entrada-factura').value;
-            const fecha = document.getElementById('entrada-fecha').value;
-            const codigoProducto = document.getElementById('entrada-producto').value;
-            const vencimiento = document.getElementById('entrada-vencimiento').value;
-            const cantidad = parseInt(document.getElementById('entrada-cantidad').value);
-            const puNeto = parseFloat(document.getElementById('entrada-pu-neto').value);
-
-            if (!idLote || !factura || !fecha || !codigoProducto || !vencimiento || !cantidad || !puNeto) {
-                alert('Por favor, complete todos los campos');
-                return;
-            }
-
-            const producto = currentData.productos.find(p => p.codigo === codigoProducto);
-            const total = puNeto * cantidad;
-
-            const entradaData = {
-                idLote,
-                factura,
-                fecha: formatDate(fecha),
-                codigo: codigoProducto,
-                descripcion: producto.descripcion,
-                pu: producto.pu,
-                pvp: producto.pvp,
-                proveedor: producto.proveedor,
-                venc: formatDate(vencimiento),
-                cant: cantidad,
-                puNeto,
-                total
-            };
-
-            currentData.entradas.push(entradaData);
-            displayEntradas();
-            closeEntradaModal();
-            showSuccessMessage('✅ Entrada registrada exitosamente');
-            updateDashboard();
-            
-            // Guardar en Google Sheets
-            if (API_KEY !== 'TU_API_KEY_AQUI') {
-                await saveEntradaToSheet(entradaData);
-            }
-            
-            // Limpiar formulario
-            document.getElementById('entrada-lote').value = '';
-            document.getElementById('entrada-factura').value = '';
-            document.getElementById('entrada-producto').value = '';
-            document.getElementById('entrada-cantidad').value = '';
-            document.getElementById('entrada-pu-neto').value = '';
-        };
-
-        const originalSaveSalida = saveSalida;
-        saveSalida = async function() {
-            const idVenta = document.getElementById('salida-venta').value;
-            const fecha = document.getElementById('salida-fecha').value;
-            const idLote = document.getElementById('salida-lote').value;
-            const cantidad = parseInt(document.getElementById('salida-cantidad').value);
-
-            if (!idVenta || !fecha || !idLote || !cantidad) {
-                alert('Por favor, complete todos los campos');
-                return;
-            }
-
-            const entrada = currentData.entradas.find(e => e.idLote === idLote);
-            const ventaTotal = entrada.pvp * cantidad;
-
-            const salidaData = {
-                idVenta,
-                fecha: formatDate(fecha),
-                idLote,
-                codigo: entrada.codigo,
-                descripcion: entrada.descripcion,
-                pvp: entrada.pvp,
-                venc: entrada.venc,
-                cant: cantidad,
-                pvpNeto: entrada.pvp,
-                ventaTotal
-            };
-
-            currentData.salidas.push(salidaData);
-            displaySalidas();
-            closeSalidaModal();
-            showSuccessMessage('✅ Salida registrada exitosamente');
-            updateDashboard();
-            
-            // Guardar en Google Sheets
-            if (API_KEY !== 'TU_API_KEY_AQUI') {
-                await saveSalidaToSheet(salidaData);
-            }
-            
-            // Limpiar formulario
-            document.getElementById('salida-venta').value = '';
-            document.getElementById('salida-lote').value = '';
-            document.getElementById('salida-cantidad').value = '';
-        };
-
-        const originalSaveGasto = saveGasto;
-        saveGasto = async function() {
-            const idGasto = document.getElementById('gasto-id').value;
-            const fecha = document.getElementById('gasto-fecha').value;
-            const descripcion = document.getElementById('gasto-descripcion').value;
-            const categoria = document.getElementById('gasto-categoria').value;
-            const monto = parseFloat(document.getElementById('gasto-monto').value);
-
-            if (!idGasto || !fecha || !descripcion || !categoria || !monto) {
-                alert('Por favor, complete todos los campos');
-                return;
-            }
-
-            const gastoData = {
-                idGasto,
-                fecha: formatDate(fecha),
-                descripcion,
-                categoria,
-                monto
-            };
-
-            currentData.gastos.push(gastoData);
-            displayGastos();
-            closeGastoModal();
-            showSuccessMessage('✅ Gasto registrado exitosamente');
-            updateDashboard();
-            
-            // Guardar en Google Sheets
-            if (API_KEY !== 'TU_API_KEY_AQUI') {
-                await saveGastoToSheet(gastoData);
-            }
-            
-            // Limpiar formulario
-            document.getElementById('gasto-descripcion').value = '';
-            document.getElementById('gasto-categoria').value = '';
-            document.getElementById('gasto-monto').value = '';
-        };
-
-        // Verificar conexión al cargar la página
-        setTimeout(async () => {
-            await testGoogleSheetsConnection();
-        }, 1000);
-    </script>
-</body>
-</html>
-        // CONFIGURACIÓN
-        // ========================================
-        
-        // ⚠️ IMPORTANTE: Reemplaza con tu API Key real de Google Cloud Console
+        // Configuración de la API de Google Sheets
         const SPREADSHEET_ID = '1Frbr8J8Wi0H0YyOVEu_WGTP7BkPEuq8xlS6BqZWtR-s';
-        const API_KEY = 'TU_API_KEY_AQUI'; // 👈 CAMBIAR ESTE VALOR
+        const API_KEY = 'AIzaSyAKFZKNHNynbhPxEa_h0Wq9aG1ys25U5UM'; // Reemplazar con tu API key
         
         // URLs para cada hoja
         const SHEETS_CONFIG = {
@@ -1237,11 +850,9 @@
             gastos: []
         };
 
-        // ========================================
-        // INICIALIZACIÓN
-        // ========================================
-        
+        // Navegación
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar la aplicación
             initApp();
             
             // Event listeners para navegación
@@ -1250,6 +861,7 @@
                     const section = this.getAttribute('data-section');
                     showSection(section);
                     
+                    // Actualizar navegación activa
                     document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
                     this.classList.add('active');
                 });
@@ -1261,7 +873,7 @@
             document.getElementById('search-salidas').addEventListener('input', filterSalidas);
             document.getElementById('search-gastos').addEventListener('input', filterGastos);
 
-            // Configurar fecha actual
+            // Configurar fecha actual en modales
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('entrada-fecha').value = today;
             document.getElementById('salida-fecha').value = today;
@@ -1269,96 +881,25 @@
         });
 
         function initApp() {
-            // Verificar si se configuró API Key
-            if (API_KEY === 'TU_API_KEY_AQUI') {
-                showErrorMessage('⚠️ API Key no configurada. Usando datos de demostración.');
-                loadDemoData();
-            } else {
-                loadAllData();
-            }
+            loadAllData();
         }
 
-        // ========================================
-        // NAVEGACIÓN
-        // ========================================
-        
         function showSection(sectionName) {
+            // Ocultar todas las secciones
             document.querySelectorAll('.content-section').forEach(section => {
                 section.classList.remove('active');
             });
             
+            // Mostrar la sección seleccionada
             document.getElementById(sectionName).classList.add('active');
             
+            // Cargar datos si es necesario
             if (sectionName !== 'dashboard') {
                 loadSectionData(sectionName);
             }
         }
 
-        // ========================================
-        // CARGA DE DATOS DEMO (PARA PRUEBAS)
-        // ========================================
-        
-        function loadDemoData() {
-            currentData.productos = [
-                { codigo: 'P0000006', descripcion: 'LEGXUS X 30ML', pu: 1.10, pvp: 1.25, proveedor: 'FARBIO' },
-                { codigo: 'P0000005', descripcion: 'FAVECAN X 2ML', pu: 1.70, pvp: 3.00, proveedor: 'FAVETEX' },
-                { codigo: 'P0000004', descripcion: 'CURA HERIDAS - 2 X 100ML', pu: 2.60, pvp: 3.50, proveedor: 'FAVETEX' },
-                { codigo: 'P0000003', descripcion: 'FIPRONIL SPRAY X 100ML', pu: 6.50, pvp: 9.00, proveedor: 'FAVETEX' },
-                { codigo: 'P0000002', descripcion: 'RATEX X 30G', pu: 1.75, pvp: 1.75, proveedor: 'FARBIO' },
-                { codigo: 'P0000001', descripcion: 'CLASS ZERO X 20ML', pu: 7.25, pvp: 9.25, proveedor: 'AGROMUNDI' }
-            ];
-
-            currentData.entradas = [
-                { 
-                    idLote: 'L12', factura: '003-001-000072531', fecha: '1/9/2025', 
-                    codigo: 'P0000003', descripcion: 'FIPRONIL SPRAY X 100ML', 
-                    pu: 6.50, pvp: 9.00, proveedor: 'FAVETEX', venc: '1/9/2027', 
-                    cant: 6, puNeto: 3.90, total: 23.40 
-                },
-                { 
-                    idLote: 'L11', factura: '003-001-000072531', fecha: '31/8/2025', 
-                    codigo: 'P0000006', descripcion: 'LEGXUS X 30ML', 
-                    pu: 1.10, pvp: 1.25, proveedor: 'FARBIO', venc: '31/8/2027', 
-                    cant: 55, puNeto: 0.88, total: 48.40 
-                }
-            ];
-
-            currentData.salidas = [
-                { 
-                    idVenta: 'V1', fecha: '27/8/2025', idLote: 'L2', 
-                    codigo: 'P0000001', descripcion: 'CLASS ZERO X 20ML', 
-                    pvp: 9.25, venc: '1/5/2027', cant: 2, 
-                    pvpNeto: 9.00, ventaTotal: 18.00 
-                }
-            ];
-
-            currentData.gastos = [
-                { idGasto: 'G8', fecha: '2/9/2025', descripcion: 'energía eléctrica', categoria: 'Servicios Básicos', monto: 110.00 },
-                { idGasto: 'G7', fecha: '1/9/2025', descripcion: 'JEIMMY', categoria: 'Sueldo', monto: 25.00 },
-                { idGasto: 'G6', fecha: '1/9/2025', descripcion: 'local', categoria: 'Arriendo', monto: 170.00 },
-                { idGasto: 'G5', fecha: '31/8/2025', descripcion: 'HAZNET', categoria: 'Internet', monto: 20.00 }
-            ];
-
-            // Mostrar datos en todas las secciones
-            displayProductos();
-            displayEntradas();
-            displaySalidas();
-            displayGastos();
-            populateProductSelects();
-            updateDashboard();
-            
-            setTimeout(() => {
-                hideLoading('productos');
-                hideLoading('entradas');
-                hideLoading('salidas');
-                hideLoading('gastos');
-            }, 500);
-        }
-
-        // ========================================
-        // CARGA DE DATOS REALES (GOOGLE SHEETS)
-        // ========================================
-        
+        // Funciones para cargar datos desde Google Sheets
         async function loadAllData() {
             try {
                 await Promise.all([
@@ -1368,148 +909,108 @@
                     loadGastos()
                 ]);
                 updateDashboard();
-                showSuccessMessage('✅ Datos cargados desde Google Sheets');
             } catch (error) {
                 console.error('Error cargando datos:', error);
-                showErrorMessage('❌ Error al cargar datos. Usando modo demo.');
-                loadDemoData();
+                showErrorMessage('Error al cargar los datos. Verificar conexión con Google Sheets.');
             }
         }
 
         async function loadSectionData(section) {
-            if (API_KEY === 'TU_API_KEY_AQUI') return;
-            
             switch(section) {
-                case 'productos': await loadProductos(); break;
-                case 'entradas': await loadEntradas(); break;
-                case 'salidas': await loadSalidas(); break;
-                case 'gastos': await loadGastos(); break;
+                case 'productos':
+                    await loadProductos();
+                    break;
+                case 'entradas':
+                    await loadEntradas();
+                    break;
+                case 'salidas':
+                    await loadSalidas();
+                    break;
+                case 'gastos':
+                    await loadGastos();
+                    break;
             }
         }
 
-        async function fetchFromGoogleSheets(range) {
-            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
-            
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            return data.values || [];
-        }
-
+        // Funciones de carga específicas (simuladas - reemplazar con llamadas reales a la API)
         async function loadProductos() {
             showLoading('productos');
-            try {
-                const data = await fetchFromGoogleSheets(SHEETS_CONFIG.productos);
-                const productos = data.slice(1).map(row => ({
-                    codigo: row[0] || '',
-                    descripcion: row[1] || '',
-                    pu: parseFloat(row[2]?.replace('
-                        , '') || 0),
-                    pvp: parseFloat(row[3]?.replace('
-                        , '') || 0),
-                    proveedor: row[4] || ''
-                })).filter(producto => producto.codigo);
-                
-                currentData.productos = productos;
+            
+            // Simulación de datos - Reemplazar con llamada real a Google Sheets API
+            setTimeout(() => {
+                currentData.productos = [
+                    { codigo: 'P0000006', descripcion: 'LEGXUS X 30ML', pu: 1.10, pvp: 1.25, proveedor: 'FARBIO' },
+                    { codigo: 'P0000005', descripcion: 'FAVECAN X 2ML', pu: 1.70, pvp: 3.00, proveedor: 'FAVETEX' },
+                    { codigo: 'P0000004', descripcion: 'CURA HERIDAS - 2 X 100ML', pu: 2.60, pvp: 3.50, proveedor: 'FAVETEX' },
+                    { codigo: 'P0000003', descripcion: 'FIPRONIL SPRAY X 100ML', pu: 6.50, pvp: 9.00, proveedor: 'FAVETEX' },
+                    { codigo: 'P0000002', descripcion: 'RATEX X 30G', pu: 1.75, pvp: 1.75, proveedor: 'FARBIO' },
+                    { codigo: 'P0000001', descripcion: 'CLASS ZERO X 20ML', pu: 7.25, pvp: 9.25, proveedor: 'AGROMUNDI' }
+                ];
                 displayProductos();
                 populateProductSelects();
                 hideLoading('productos');
-            } catch (error) {
-                hideLoading('productos');
-                throw error;
-            }
+            }, 1000);
         }
 
         async function loadEntradas() {
             showLoading('entradas');
-            try {
-                const data = await fetchFromGoogleSheets(SHEETS_CONFIG.entradas);
-                const entradas = data.slice(1).map(row => ({
-                    idLote: row[0] || '',
-                    factura: row[1] || '',
-                    fecha: row[2] || '',
-                    codigo: row[3] || '',
-                    descripcion: row[4] || '',
-                    pu: parseFloat(row[5]?.replace('
-                        , '') || 0),
-                    pvp: parseFloat(row[6]?.replace('
-                        , '') || 0),
-                    proveedor: row[7] || '',
-                    venc: row[8] || '',
-                    cant: parseInt(row[9] || 0),
-                    puNeto: parseFloat(row[10]?.replace('
-                        , '') || 0),
-                    total: parseFloat(row[11]?.replace('
-                        , '') || 0)
-                })).filter(entrada => entrada.idLote);
-                
-                currentData.entradas = entradas;
+            
+            // Simulación de datos
+            setTimeout(() => {
+                currentData.entradas = [
+                    { 
+                        idLote: 'L12', factura: '003-001-000072531', fecha: '1/9/2025', 
+                        codigo: 'P0000003', descripcion: 'FIPRONIL SPRAY X 100ML', 
+                        pu: 6.50, pvp: 9.00, proveedor: 'FAVETEX', venc: '1/9/2027', 
+                        cant: 6, puNeto: 3.90, total: 23.40 
+                    },
+                    { 
+                        idLote: 'L11', factura: '003-001-000072531', fecha: '31/8/2025', 
+                        codigo: 'P0000006', descripcion: 'LEGXUS X 30ML', 
+                        pu: 1.10, pvp: 1.25, proveedor: 'FARBIO', venc: '31/8/2027', 
+                        cant: 55, puNeto: 0.88, total: 48.40 
+                    }
+                ];
                 displayEntradas();
                 hideLoading('entradas');
-            } catch (error) {
-                hideLoading('entradas');
-                throw error;
-            }
+            }, 1000);
         }
 
         async function loadSalidas() {
             showLoading('salidas');
-            try {
-                const data = await fetchFromGoogleSheets(SHEETS_CONFIG.salidas);
-                const salidas = data.slice(1).map(row => ({
-                    idVenta: row[0] || '',
-                    fecha: row[1] || '',
-                    idLote: row[2] || '',
-                    codigo: row[3] || '',
-                    descripcion: row[4] || '',
-                    pvp: parseFloat(row[5]?.replace('
-                        , '') || 0),
-                    venc: row[6] || '',
-                    cant: parseInt(row[7] || 0),
-                    pvpNeto: parseFloat(row[8]?.replace('
-                        , '') || 0),
-                    ventaTotal: parseFloat(row[9]?.replace('
-                        , '') || 0)
-                })).filter(salida => salida.idVenta);
-                
-                currentData.salidas = salidas;
+            
+            // Simulación de datos
+            setTimeout(() => {
+                currentData.salidas = [
+                    { 
+                        idVenta: 'V1', fecha: '27/8/2025', idLote: 'L2', 
+                        codigo: 'P0000001', descripcion: 'CLASS ZERO X 20ML', 
+                        pvp: 9.25, venc: '1/5/2027', cant: 2, 
+                        pvpNeto: 9.00, ventaTotal: 18.00 
+                    }
+                ];
                 displaySalidas();
                 hideLoading('salidas');
-            } catch (error) {
-                hideLoading('salidas');
-                throw error;
-            }
+            }, 1000);
         }
 
         async function loadGastos() {
             showLoading('gastos');
-            try {
-                const data = await fetchFromGoogleSheets(SHEETS_CONFIG.gastos);
-                const gastos = data.slice(1).map(row => ({
-                    idGasto: row[0] || '',
-                    fecha: row[1] || '',
-                    descripcion: row[2] || '',
-                    categoria: row[3] || '',
-                    monto: parseFloat(row[4]?.replace('
-                        , '') || 0)
-                })).filter(gasto => gasto.idGasto);
-                
-                currentData.gastos = gastos;
+            
+            // Simulación de datos
+            setTimeout(() => {
+                currentData.gastos = [
+                    { idGasto: 'G8', fecha: '2/9/2025', descripcion: 'energía eléctrica', categoria: 'Servicios Básicos', monto: 110.00 },
+                    { idGasto: 'G7', fecha: '1/9/2025', descripcion: 'JEIMMY', categoria: 'Sueldo', monto: 25.00 },
+                    { idGasto: 'G6', fecha: '1/9/2025', descripcion: 'local', categoria: 'Arriendo', monto: 170.00 },
+                    { idGasto: 'G5', fecha: '31/8/2025', descripcion: 'HAZNET', categoria: 'Internet', monto: 20.00 }
+                ];
                 displayGastos();
                 hideLoading('gastos');
-            } catch (error) {
-                hideLoading('gastos');
-                throw error;
-            }
+            }, 1000);
         }
 
-        // ========================================
-        // MOSTRAR DATOS EN TABLAS
-        // ========================================
-        
+        // Funciones para mostrar datos en tablas
         function displayProductos() {
             const tbody = document.getElementById('productos-tbody');
             tbody.innerHTML = '';
@@ -1523,10 +1024,10 @@
                     <td>${producto.pvp.toFixed(2)}</td>
                     <td>${producto.proveedor}</td>
                     <td>
-                        <button class="btn btn-primary" onclick="editProduct('${producto.codigo}')" style="margin-right: 5px; padding: 8px 12px;">
+                        <button class="btn btn-primary" onclick="editProduct('${producto.codigo}')" style="margin-right: 5px;">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn btn-danger" onclick="deleteProduct('${producto.codigo}')" style="padding: 8px 12px;">
+                        <button class="btn btn-danger" onclick="deleteProduct('${producto.codigo}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -1597,7 +1098,7 @@
                     <td>${gasto.categoria}</td>
                     <td>${gasto.monto.toFixed(2)}</td>
                     <td>
-                        <button class="btn btn-danger" onclick="deleteGasto('${gasto.idGasto}')" style="padding: 8px 12px;">
+                        <button class="btn btn-danger" onclick="deleteGasto('${gasto.idGasto}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
@@ -1607,10 +1108,7 @@
             document.getElementById('gastos-table').style.display = 'table';
         }
 
-        // ========================================
-        // FUNCIONES DE FILTRADO
-        // ========================================
-        
+        // Funciones de filtrado
         function filterProductos() {
             const searchTerm = document.getElementById('search-productos').value.toLowerCase();
             const rows = document.querySelectorAll('#productos-tbody tr');
@@ -1651,10 +1149,7 @@
             });
         }
 
-        // ========================================
-        // DASHBOARD
-        // ========================================
-        
+        // Funciones para el dashboard
         function updateDashboard() {
             document.getElementById('total-productos').textContent = currentData.productos.length;
             document.getElementById('total-entradas').textContent = currentData.entradas.length;
@@ -1664,15 +1159,13 @@
             document.getElementById('total-gastos').textContent = `${totalGastos.toFixed(2)}`;
         }
 
-        // ========================================
-        // MODALES
-        // ========================================
-        
+        // Funciones para modales
         function openProductModal(codigo = null) {
             const modal = document.getElementById('productModal');
             const title = document.getElementById('productModalTitle');
             
             if (codigo) {
+                // Editar producto
                 const producto = currentData.productos.find(p => p.codigo === codigo);
                 title.textContent = 'Editar Producto';
                 document.getElementById('product-codigo').value = producto.codigo;
@@ -1682,13 +1175,18 @@
                 document.getElementById('product-proveedor').value = producto.proveedor;
                 document.getElementById('product-codigo').readOnly = true;
             } else {
+                // Nuevo producto
                 title.textContent = 'Agregar Producto';
-                document.getElementById('product-codigo').value = generateNextProductCode();
+                document.getElementById('product-codigo').value = '';
                 document.getElementById('product-descripcion').value = '';
                 document.getElementById('product-pu').value = '';
                 document.getElementById('product-pvp').value = '';
                 document.getElementById('product-proveedor').value = '';
                 document.getElementById('product-codigo').readOnly = false;
+                
+                // Generar siguiente código
+                const nextCode = generateNextProductCode();
+                document.getElementById('product-codigo').value = nextCode;
             }
             
             modal.style.display = 'block';
@@ -1717,7 +1215,8 @@
         }
 
         function openGastoModal() {
-            document.getElementById('gasto-id').value = generateNextGastoId();
+            const nextId = generateNextGastoId();
+            document.getElementById('gasto-id').value = nextId;
             document.getElementById('gastoModal').style.display = 'block';
         }
 
@@ -1725,10 +1224,7 @@
             document.getElementById('gastoModal').style.display = 'none';
         }
 
-        // ========================================
-        // GUARDAR DATOS
-        // ========================================
-        
+        // Funciones para guardar datos
         function saveProduct() {
             const codigo = document.getElementById('product-codigo').value;
             const descripcion = document.getElementById('product-descripcion').value;
@@ -1746,27 +1242,25 @@
 
             if (existingIndex >= 0) {
                 currentData.productos[existingIndex] = productData;
-                showSuccessMessage('✅ Producto actualizado exitosamente');
+                showSuccessMessage('Producto actualizado exitosamente');
             } else {
                 currentData.productos.push(productData);
-                showSuccessMessage('✅ Producto agregado exitosamente');
+                showSuccessMessage('Producto agregado exitosamente');
             }
 
             displayProductos();
-            populateProductSelects();
             closeProductModal();
             
-            // TODO: Implementar guardado en Google Sheets cuando API_KEY esté configurada
-            if (API_KEY !== 'TU_API_KEY_AQUI') {
-                // saveProductToSheet(productData);
-            }
+            // Aquí llamarías a la función para actualizar Google Sheets
+            // updateGoogleSheet('productos', productData);
         }
 
         function saveEntrada() {
             const idLote = document.getElementById('entrada-lote').value;
             const factura = document.getElementById('entrada-factura').value;
             const fecha = document.getElementById('entrada-fecha').value;
-            const codigoProducto = document.getElementById('entrada-producto').value;
+            const productoSelect = document.getElementById('entrada-producto');
+            const codigoProducto = productoSelect.value;
             const vencimiento = document.getElementById('entrada-vencimiento').value;
             const cantidad = parseInt(document.getElementById('entrada-cantidad').value);
             const puNeto = parseFloat(document.getElementById('entrada-pu-neto').value);
@@ -1797,8 +1291,7 @@
             currentData.entradas.push(entradaData);
             displayEntradas();
             closeEntradaModal();
-            showSuccessMessage('✅ Entrada registrada exitosamente');
-            updateDashboard();
+            showSuccessMessage('Entrada registrada exitosamente');
             
             // Limpiar formulario
             document.getElementById('entrada-lote').value = '';
@@ -1819,6 +1312,7 @@
                 return;
             }
 
+            // Encontrar la entrada correspondiente al lote
             const entrada = currentData.entradas.find(e => e.idLote === idLote);
             const ventaTotal = entrada.pvp * cantidad;
 
@@ -1838,8 +1332,7 @@
             currentData.salidas.push(salidaData);
             displaySalidas();
             closeSalidaModal();
-            showSuccessMessage('✅ Salida registrada exitosamente');
-            updateDashboard();
+            showSuccessMessage('Salida registrada exitosamente');
             
             // Limpiar formulario
             document.getElementById('salida-venta').value = '';
@@ -1870,7 +1363,7 @@
             currentData.gastos.push(gastoData);
             displayGastos();
             closeGastoModal();
-            showSuccessMessage('✅ Gasto registrado exitosamente');
+            showSuccessMessage('Gasto registrado exitosamente');
             updateDashboard();
             
             // Limpiar formulario
@@ -1879,10 +1372,7 @@
             document.getElementById('gasto-monto').value = '';
         }
 
-        // ========================================
-        // FUNCIONES AUXILIARES
-        // ========================================
-        
+        // Funciones auxiliares
         function generateNextProductCode() {
             if (currentData.productos.length === 0) return 'P0000001';
             
@@ -1935,34 +1425,125 @@
 
         function hideLoading(section) {
             document.getElementById(`loading-${section}`).style.display = 'none';
+            document.getElementById(`${section}-table`).style.display = 'table';
         }
 
         function showSuccessMessage(message) {
+            // Crear elemento de mensaje
             const messageDiv = document.createElement('div');
             messageDiv.className = 'success-message';
             messageDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
             
+            // Insertar al inicio del contenido principal
             const mainContent = document.querySelector('.main-content');
             mainContent.insertBefore(messageDiv, mainContent.firstChild);
             
+            // Remover después de 3 segundos
             setTimeout(() => {
                 messageDiv.remove();
             }, 3000);
         }
 
         function showErrorMessage(message) {
+            // Crear elemento de mensaje
             const messageDiv = document.createElement('div');
             messageDiv.className = 'error-message';
             messageDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
             
+            // Insertar al inicio del contenido principal
             const mainContent = document.querySelector('.main-content');
             mainContent.insertBefore(messageDiv, mainContent.firstChild);
             
+            // Remover después de 5 segundos
             setTimeout(() => {
                 messageDiv.remove();
             }, 5000);
         }
 
-        // ========================================
-        
-                        
+        // Funciones para editar y eliminar
+        function editProduct(codigo) {
+            openProductModal(codigo);
+        }
+
+        function deleteProduct(codigo) {
+            if (confirm('¿Está seguro de que desea eliminar este producto?')) {
+                const index = currentData.productos.findIndex(p => p.codigo === codigo);
+                if (index >= 0) {
+                    currentData.productos.splice(index, 1);
+                    displayProductos();
+                    showSuccessMessage('Producto eliminado exitosamente');
+                }
+            }
+        }
+
+        function deleteGasto(idGasto) {
+            if (confirm('¿Está seguro de que desea eliminar este gasto?')) {
+                const index = currentData.gastos.findIndex(g => g.idGasto === idGasto);
+                if (index >= 0) {
+                    currentData.gastos.splice(index, 1);
+                    displayGastos();
+                    updateDashboard();
+                    showSuccessMessage('Gasto eliminado exitosamente');
+                }
+            }
+        }
+
+        // Cerrar modales al hacer clic fuera
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        // FUNCIONES PARA CONECTAR CON GOOGLE SHEETS API
+        // Estas funciones necesitan ser implementadas con tu API Key
+
+        /*
+        async function fetchFromGoogleSheets(range) {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}?key=${API_KEY}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                return data.values || [];
+            } catch (error) {
+                console.error('Error fetching data from Google Sheets:', error);
+                throw error;
+            }
+        }
+
+        async function updateGoogleSheet(sheetName, rowData) {
+            // Implementar la lógica para actualizar Google Sheets
+            const range = `${sheetName}!A:Z`;
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=RAW&key=${API_KEY}`;
+            
+            const body = {
+                values: [Object.values(rowData)]
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error updating Google Sheets');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error updating Google Sheets:', error);
+                throw error;
+            }
+        }
+        */
+    </script>
+</body>
+</html>
