@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Torres Vet</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#c62828">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  html,body{margin:0;height:100%}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f5f3f1;color:#1f1b1a;display:flex;align-items:center;justify-content:center}
+  .c{text-align:center;padding:24px;max-width:420px}
+  .lg{width:88px;height:88px;border-radius:24px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+  h1{font-size:22px;margin:16px 0 6px}
+  .m{color:#6d6461;line-height:1.45}
+  button{margin-top:16px;border:0;border-radius:12px;background:#c62828;color:#fff;font:inherit;font-weight:700;padding:12px 20px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="c"><img class="lg" src="icon-192.png" alt=""><h1>Torres Vet</h1><div id="m" class="m">Abriendo…</div><div id="b"></div></div>
+<script>
+/* Torres Vet · app instalable. Este archivo casi nunca cambia: las pantallas vienen de Apps Script
+   y quedan guardadas en el aparato para abrir sin internet. */
+(function () {
+  var API = 'https://script.google.com/macros/s/AKfycbwTHaIdGyefl0xJRx03bm_w9wPJg8FMpjJh_sG7oxKcSTmpCABpNd8f_oA_CiV7IcI2Mw/exec';
+  var Q = new URLSearchParams(location.search), MODO = Q.get('modo') === 'sistema' ? 'sistema' : 'caja';
+  var APP = { api: API, shell: location.origin + location.pathname, modo: MODO, tk: Q.get('tk') || '', v: Q.get('v') || '', salir: !!Q.get('salir') };
+  var m = function (t, btn) { document.getElementById('m').innerHTML = t; document.getElementById('b').innerHTML = btn ? '<button onclick="location.reload()">Intentar de nuevo</button>' : ''; };
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+  /* pantallas guardadas en el aparato */
+  function db(fn) { try { var r = indexedDB.open('torresvet_app', 1); r.onupgradeneeded = function () { r.result.createObjectStore('p'); }; r.onsuccess = function () { fn(r.result); }; r.onerror = function () { fn(null); }; } catch (e) { fn(null); } }
+  function leer(k, fn) { db(function (d) { if (!d) return fn(null); var q = d.transaction('p').objectStore('p').get(k); q.onsuccess = function () { fn(q.result || null); }; q.onerror = function () { fn(null); }; }); }
+  function guardar(k, v) { db(function (d) { if (d) d.transaction('p', 'readwrite').objectStore('p').put(v, k); }); }
+  function bajar(ver, ok, mal) {
+    fetch(API + '?modo=app&p=' + MODO + '&v=' + encodeURIComponent(ver || '') + '&t=' + Date.now())
+      .then(function (r) { return r.text(); })
+      .then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} if (!j || !j.ver) return mal('El enlace de Apps Script no respondió como se esperaba. Revisa que la implementación tenga acceso para "Cualquier persona".'); ok(j); })
+      .catch(function () { mal('Sin conexión.'); });
+  }
+  function mostrar(html) {
+    var pre = '<script>window.TV_APP=' + JSON.stringify(APP).replace(/</g, '\\u003c') + ';<\/script>';
+    html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (h) { return h + pre; }) : pre + html;
+    if (!/name="viewport"/.test(html)) html = html.replace(pre, pre + '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">');
+    setTimeout(function () { document.open(); document.write(html); document.close(); }, 0);
+  }
+  function aviso() {
+    try {
+      var d = document.createElement('div');
+      d.textContent = '🔄 Hay una versión nueva. Toca aquí para actualizar.';
+      d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:78px;z-index:99999;background:#1f1b1a;color:#fff;padding:12px 14px;border-radius:12px;font:600 15px system-ui;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.3);cursor:pointer';
+      d.onclick = function () { location.reload(); };
+      document.body.appendChild(d);
+    } catch (e) {}
+  }
+  leer('pantalla_' + MODO, function (c) {
+    if (c && c.html) {
+      mostrar(c.html);
+      if (navigator.onLine !== false) setTimeout(function () { bajar(c.ver, function (j) { if (j.html && j.ver !== c.ver) { guardar('pantalla_' + MODO, { ver: j.ver, html: j.html, t: Date.now() }); aviso(); } }, function () {}); }, 4000);
+      return;
+    }
+    if (navigator.onLine === false) return m('📴 Sin internet.<br>La primera vez la app tiene que abrirse con internet; después ya funciona sin señal.', true);
+    m('Preparando la app por primera vez…');
+    bajar('', function (j) { guardar('pantalla_' + MODO, { ver: j.ver, html: j.html, t: Date.now() }); mostrar(j.html); }, function (e) { m(e, true); });
+  });
+})();
+</script>
+</body>
+</html>
